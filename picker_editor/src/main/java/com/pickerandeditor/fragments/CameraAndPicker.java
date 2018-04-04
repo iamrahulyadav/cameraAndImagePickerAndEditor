@@ -1,14 +1,20 @@
 package com.pickerandeditor.fragments;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.hardware.Camera;
 import android.media.AudioManager;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -19,15 +25,19 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import com.pickerandeditor.R;
+import com.pickerandeditor.adapters.ImageAdapter;
+import com.pickerandeditor.modelclasses.ImageModel;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
-
-import de.hdodenhof.circleimageview.CircleImageView;
+import java.util.List;
 
 
 public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback, View.OnClickListener {
@@ -40,6 +50,7 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     private Camera camera;
     private ImageView takeBTN;
     private ImageView changeCameraBTN;
+    private RecyclerView imagesRV;
 
     private AudioManager audioManager;
     private boolean isCameraConfigured = false, isPreview = false, isRecording = false;
@@ -47,6 +58,10 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     private File outputFile;
     private int numOfCameras = 0;
     private int currentCameraID;
+    private Handler videoHandler;
+    private Boolean isRecordVideo = false;
+    private ArrayList<ImageModel> imageModels;
+    private ImageAdapter adapter;
 
 
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
@@ -54,30 +69,45 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         View view = inflater.inflate(R.layout.camera_picker, null);
 
+        changeCameraBTN = view.findViewById(R.id.changeCameraBTN);
+        imagesRV = view.findViewById(R.id.imagesRV);
+
+        videoHandler = new Handler();
+        imageModels = new ArrayList<>();
+
         cameraPreview = view.findViewById(R.id.cameraPreview);
         takeBTN = view.findViewById(R.id.takeBTN);
-        changeCameraBTN = view.findViewById(R.id.changeCameraBTN);
         surfaceHolder = cameraPreview.getHolder();
         surfaceHolder.addCallback(this);
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
         audioManager = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
-        setCameraIDs();
         camera = getCameraInstance();
         changeCameraBTN.setOnClickListener(this);
+
+        setCameraIDs();
+        setTakeBTNTouchListener();
+        setRecyclerView();
+        getAllShownImagesPath();
         return view;
     }
 
+    private void setRecyclerView(){
+        imagesRV.setLayoutManager(new LinearLayoutManager(getActivity(),LinearLayoutManager.HORIZONTAL,false));
+        adapter = new ImageAdapter(getActivity(),imageModels);
+        imagesRV.setAdapter(adapter);
+    }
     private void setCameraIDs(){
         numOfCameras = Camera.getNumberOfCameras();
         if (numOfCameras>1){
-            currentCameraID = 1;
+            currentCameraID = Camera.CameraInfo.CAMERA_FACING_BACK;
             changeCameraBTN.setVisibility(View.VISIBLE);
         }
     }
     @Override
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
         initPreview();
+        setCameraDisplayOrientation(currentCameraID,camera);
     }
 
     @Override
@@ -94,7 +124,6 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         if (isCameraConfigured && camera != null) {
             camera.startPreview();
             isPreview = true;
-            setTakeBTNTouchListener();
         }
     }
 
@@ -137,8 +166,8 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             if (!isCameraConfigured) {
                 Camera.Parameters parameters = camera.getParameters();
                 parameters.setPreviewFpsRange(30000, 30000);
+                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_ON);
                 camera.setParameters(parameters);
-                setCameraDisplayOrientation(0,camera);
                 isCameraConfigured = true;
             }
         }
@@ -238,9 +267,23 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
                 switch(event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         takeBTN.setImageResource(R.drawable.camera_btn_pressed_bg);
+                        videoHandler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                isRecordVideo = true;
+                                Toast.makeText(getActivity(), "START RECORDING", Toast.LENGTH_SHORT).show();
+                            }
+                        },1000);
                         return true;
                     case MotionEvent.ACTION_UP:
                         takeBTN.setImageResource(R.drawable.cemera_btn_bg);
+                        if (isRecordVideo){
+                            Toast.makeText(getActivity(), "STOP RECORDING", Toast.LENGTH_SHORT).show();
+                        }else {
+                            Toast.makeText(getActivity(), "Image Clicked", Toast.LENGTH_SHORT).show();
+                        }
+                        isRecordVideo = false;
+                        videoHandler.removeCallbacksAndMessages(null);
                         return true;
                 }
                 return false;
@@ -266,18 +309,45 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             camera.stopPreview();
             camera.release();
             isPreview = false;
-            camera = null;
+        }
+        if(currentCameraID == Camera.CameraInfo.CAMERA_FACING_FRONT){
+            currentCameraID = Camera.CameraInfo.CAMERA_FACING_BACK;
+        }else {
+            currentCameraID = Camera.CameraInfo.CAMERA_FACING_FRONT;
         }
         camera = getCameraInstance();
         if (camera == null){
             return;
         }
-        if(currentCameraID == Camera.CameraInfo.CAMERA_FACING_BACK){
-            currentCameraID = Camera.CameraInfo.CAMERA_FACING_FRONT;
-        }else {
-            currentCameraID = Camera.CameraInfo.CAMERA_FACING_BACK;
-        }
+        initPreview();
         startPreview();
+        setCameraDisplayOrientation(currentCameraID,camera);
+
     }
 
+    public void getAllShownImagesPath() {
+        Uri uri;
+        Cursor cursor;
+        int column_index_data, column_index_folder_name;
+        String absolutePathOfImage = null;
+        uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+
+        String[] projection = { MediaStore.MediaColumns.DATA,
+                MediaStore.Images.Media.BUCKET_DISPLAY_NAME };
+        cursor = getActivity().getContentResolver().query(uri, projection, null,
+                null, null);
+
+        column_index_data = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA);
+        column_index_folder_name = cursor
+                .getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME);
+        while (cursor.moveToNext()) {
+            absolutePathOfImage = cursor.getString(column_index_data);
+            ImageModel model = new ImageModel();
+            model.setPath(absolutePathOfImage);
+            imageModels.add(model);
+        }
+        Log.d(TAG,imageModels.size()+"");
+        Collections.reverse(imageModels);
+        adapter.notifyDataSetChanged();
+    }
 }

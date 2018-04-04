@@ -11,6 +11,7 @@
         android:layout_height="match_parent" />
 
     <RelativeLayout
+        android:id="@+id/cameraControls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="15dp"
@@ -33,4 +34,12 @@
             android:visibility="gone"
             android:layout_toRightOf="@id/takeBTN"/>
     </RelativeLayout>
+
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/imagesRV"
+        android:layout_width="match_parent"
+        android:layout_height="110dp"
+        android:layout_above="@id/cameraControls">
+
+    </android.support.v7.widget.RecyclerView>
 </RelativeLayout>
