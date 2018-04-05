@@ -2,6 +2,9 @@ package com.pickerandeditor.fragments;
 
 import android.content.Context;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.media.AudioManager;
 import android.media.CamcorderProfile;
@@ -15,6 +18,7 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.ThemedSpinnerAdapter;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -32,6 +36,7 @@ import com.pickerandeditor.adapters.ImageAdapter;
 import com.pickerandeditor.modelclasses.ImageModel;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -92,22 +97,24 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         return view;
     }
 
-    private void setRecyclerView(){
-        imagesRV.setLayoutManager(new LinearLayoutManager(getActivity(),LinearLayoutManager.HORIZONTAL,false));
-        adapter = new ImageAdapter(getActivity(),imageModels);
+    private void setRecyclerView() {
+        imagesRV.setLayoutManager(new LinearLayoutManager(getActivity(), LinearLayoutManager.HORIZONTAL, false));
+        adapter = new ImageAdapter(getActivity(), imageModels);
         imagesRV.setAdapter(adapter);
     }
-    private void setCameraIDs(){
+
+    private void setCameraIDs() {
         numOfCameras = Camera.getNumberOfCameras();
-        if (numOfCameras>1){
+        if (numOfCameras > 1) {
             currentCameraID = Camera.CameraInfo.CAMERA_FACING_BACK;
             changeCameraBTN.setVisibility(View.VISIBLE);
         }
     }
+
     @Override
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
         initPreview();
-        setCameraDisplayOrientation(currentCameraID,camera);
+        setCameraDisplayOrientation(currentCameraID, camera);
     }
 
     @Override
@@ -141,7 +148,7 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         if (type == MEDIA_TYPE_VIDEO) {
             mediaFile = new File(mediaStorageDir.getPath(), "VID_" + timeStamp + ".mp4");
         } else if (type == MEDIA_TYPE_IMAGE) {
-            mediaFile = new File(mediaStorageDir.getPath(), "IMG_" + timeStamp + ".png");
+            mediaFile = new File(mediaStorageDir.getPath(), "IMG_" + timeStamp + ".jpeg");
         }
         return mediaFile;
     }
@@ -166,7 +173,22 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             if (!isCameraConfigured) {
                 Camera.Parameters parameters = camera.getParameters();
                 parameters.setPreviewFpsRange(30000, 30000);
-                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_ON);
+                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+
+                Camera.Parameters params = camera.getParameters();
+                List<Camera.Size> sizeList = params.getSupportedPictureSizes();
+                Camera.Size size = sizeList.get(0);
+                for (int i = 0; i < sizeList.size(); i++) {
+                    if (sizeList.get(i).width > size.width)
+                        size = sizeList.get(i);
+                }
+                params.setPictureSize(size.width, size.height);
+                parameters.setJpegQuality(100);
+                parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+                parameters.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
+                parameters.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
+                parameters.setExposureCompensation(0);
+                parameters.setPictureFormat(ImageFormat.JPEG);
                 camera.setParameters(parameters);
                 isCameraConfigured = true;
             }
@@ -193,28 +215,22 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             mediaRecorder.stop();
             mediaRecorder.release();
             mediaRecorder = null;
-            camera.stopPreview();
-            releaseCamera();
             isRecording = false;
         }
+        Log.d(TAG, "File Name: " + outputFile.getAbsolutePath() + " \n Size: " + outputFile.length());
     }
 
     private boolean prepareVideoRecorder() {
-
-        if (camera != null) {
-            camera.release();
-        }
-        camera = getCameraInstance();
         if (camera == null) {
             return false;
         }
         mediaRecorder = new MediaRecorder();
-
         camera.unlock();
         mediaRecorder.setCamera(camera);
         mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
         mediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         mediaRecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH));
+        mediaRecorder.setOrientationHint(getOrientations(currentCameraID));
         mediaRecorder.setPreviewDisplay(surfaceHolder.getSurface());
 
         outputFile = getOutputMediaFile(MEDIA_TYPE_VIDEO);
@@ -255,16 +271,48 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             result = (info.orientation - degrees + 360) % 360;
         }
         camera.setDisplayOrientation(result);
+        Camera.Parameters parameters = camera.getParameters();
+        parameters.setRotation(result);
+        camera.setParameters(parameters);
     }
 
-    private void setTakeBTNTouchListener(){
+    public int getOrientations(int cameraId) {
+        android.hardware.Camera.CameraInfo info = new android.hardware.Camera.CameraInfo();
+        android.hardware.Camera.getCameraInfo(cameraId, info);
+        int rotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+        int degrees = 180;
+        switch (rotation) {
+            case Surface.ROTATION_0:
+                degrees = 0;
+                break;
+            case Surface.ROTATION_90:
+                degrees = 90;
+                break;
+            case Surface.ROTATION_180:
+                degrees = 180;
+                break;
+            case Surface.ROTATION_270:
+                degrees = 270;
+                break;
+        }
+        int result;
+        if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            result = (info.orientation + degrees) % 360;
+            result = (360 - result) % 360;
+        } else {
+            result = (info.orientation - degrees + 360) % 360;
+        }
+        return result;
+    }
+
+    private void setTakeBTNTouchListener() {
         takeBTN.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 if (!isPreview) {
                     return false;
                 }
-                switch(event.getAction()) {
+                switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         takeBTN.setImageResource(R.drawable.camera_btn_pressed_bg);
                         videoHandler.postDelayed(new Runnable() {
@@ -272,14 +320,17 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
                             public void run() {
                                 isRecordVideo = true;
                                 Toast.makeText(getActivity(), "START RECORDING", Toast.LENGTH_SHORT).show();
+                                startRecording();
                             }
-                        },1000);
+                        }, 1000);
                         return true;
                     case MotionEvent.ACTION_UP:
                         takeBTN.setImageResource(R.drawable.cemera_btn_bg);
-                        if (isRecordVideo){
+                        if (isRecordVideo) {
+                            stopRecording();
                             Toast.makeText(getActivity(), "STOP RECORDING", Toast.LENGTH_SHORT).show();
-                        }else {
+                        } else {
+                            takePicture();
                             Toast.makeText(getActivity(), "Image Clicked", Toast.LENGTH_SHORT).show();
                         }
                         isRecordVideo = false;
@@ -297,31 +348,40 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         releaseCamera();
     }
 
+    private void startRecording() {
+        if (prepareVideoRecorder()) {
+            mediaRecorder.start();
+            isRecording = true;
+        } else {
+            Toast.makeText(getActivity(), "Something went wrong", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     @Override
     public void onClick(View v) {
-        if (v.getId() == R.id.changeCameraBTN){
+        if (v.getId() == R.id.changeCameraBTN) {
             switchCameraAction();
         }
     }
 
-    private void switchCameraAction(){
-        if (isPreview){
+    private void switchCameraAction() {
+        if (isPreview) {
             camera.stopPreview();
             camera.release();
             isPreview = false;
         }
-        if(currentCameraID == Camera.CameraInfo.CAMERA_FACING_FRONT){
+        if (currentCameraID == Camera.CameraInfo.CAMERA_FACING_FRONT) {
             currentCameraID = Camera.CameraInfo.CAMERA_FACING_BACK;
-        }else {
+        } else {
             currentCameraID = Camera.CameraInfo.CAMERA_FACING_FRONT;
         }
         camera = getCameraInstance();
-        if (camera == null){
+        if (camera == null) {
             return;
         }
         initPreview();
         startPreview();
-        setCameraDisplayOrientation(currentCameraID,camera);
+        setCameraDisplayOrientation(currentCameraID, camera);
 
     }
 
@@ -332,8 +392,8 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         String absolutePathOfImage = null;
         uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
 
-        String[] projection = { MediaStore.MediaColumns.DATA,
-                MediaStore.Images.Media.BUCKET_DISPLAY_NAME };
+        String[] projection = {MediaStore.MediaColumns.DATA,
+                MediaStore.Images.Media.BUCKET_DISPLAY_NAME};
         cursor = getActivity().getContentResolver().query(uri, projection, null,
                 null, null);
 
@@ -346,8 +406,26 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             model.setPath(absolutePathOfImage);
             imageModels.add(model);
         }
-        Log.d(TAG,imageModels.size()+"");
+        Log.d(TAG, imageModels.size() + "");
         Collections.reverse(imageModels);
         adapter.notifyDataSetChanged();
+    }
+
+    private void takePicture() {
+        camera.takePicture(null, null, new Camera.PictureCallback() {
+            @Override
+            public void onPictureTaken(final byte[] data, Camera camera) {
+                try {
+                    FileOutputStream out = new FileOutputStream(getOutputMediaFile(MEDIA_TYPE_IMAGE));
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
+                    out.flush();
+                    out.close();
+                    camera.startPreview();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
     }
 }
