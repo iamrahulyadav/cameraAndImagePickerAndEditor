@@ -29,8 +29,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.pickerandeditor.BaseActivity;
 import com.pickerandeditor.R;
 import com.pickerandeditor.adapters.ImageAdapter;
 import com.pickerandeditor.modelclasses.ImageModel;
@@ -45,7 +47,7 @@ import java.util.Date;
 import java.util.List;
 
 
-public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback, View.OnClickListener {
+public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback, View.OnClickListener, ImageAdapter.OnItemClick {
 
     private static final String TAG = "CameraAndPicker";
     private static final int MEDIA_TYPE_VIDEO = 1;
@@ -53,7 +55,8 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     private SurfaceView cameraPreview;
     private SurfaceHolder surfaceHolder;
     private Camera camera;
-    private ImageView takeBTN;
+    private ImageView takeBTN,nextIV;
+    private TextView selectionCount;
     private ImageView changeCameraBTN;
     private RecyclerView imagesRV;
 
@@ -65,7 +68,7 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     private int currentCameraID;
     private Handler videoHandler;
     private Boolean isRecordVideo = false;
-    private ArrayList<ImageModel> imageModels;
+    private ArrayList<ImageModel> imageModels, selectedImagesList;
     private ImageAdapter adapter;
 
 
@@ -79,9 +82,12 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
 
         videoHandler = new Handler();
         imageModels = new ArrayList<>();
+        selectedImagesList = new ArrayList<>();
 
         cameraPreview = view.findViewById(R.id.cameraPreview);
         takeBTN = view.findViewById(R.id.takeBTN);
+        nextIV = view.findViewById(R.id.nextIV);
+        selectionCount = view.findViewById(R.id.selectionCount);
         surfaceHolder = cameraPreview.getHolder();
         surfaceHolder.addCallback(this);
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
@@ -89,6 +95,8 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         audioManager = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
         camera = getCameraInstance();
         changeCameraBTN.setOnClickListener(this);
+        nextIV.setOnClickListener(this);
+
 
         setCameraIDs();
         setTakeBTNTouchListener();
@@ -99,7 +107,7 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
 
     private void setRecyclerView() {
         imagesRV.setLayoutManager(new LinearLayoutManager(getActivity(), LinearLayoutManager.HORIZONTAL, false));
-        adapter = new ImageAdapter(getActivity(), imageModels);
+        adapter = new ImageAdapter(getActivity(), imageModels,this);
         imagesRV.setAdapter(adapter);
     }
 
@@ -176,13 +184,6 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
                 parameters.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
 
                 Camera.Parameters params = camera.getParameters();
-                List<Camera.Size> sizeList = params.getSupportedPictureSizes();
-                Camera.Size size = sizeList.get(0);
-                for (int i = 0; i < sizeList.size(); i++) {
-                    if (sizeList.get(i).width > size.width)
-                        size = sizeList.get(i);
-                }
-                params.setPictureSize(size.width, size.height);
                 parameters.setJpegQuality(100);
                 parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
                 parameters.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
@@ -361,6 +362,9 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     public void onClick(View v) {
         if (v.getId() == R.id.changeCameraBTN) {
             switchCameraAction();
+        }else if (v.getId() == R.id.nextIV){
+            addEditorFragment();
+            Toast.makeText(getActivity(), "Next Clicked", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -412,20 +416,89 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     }
 
     private void takePicture() {
-        camera.takePicture(null, null, new Camera.PictureCallback() {
+        if (selectedImagesList.size() == 3){
+            Toast.makeText(getActivity(), "Limit exceed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        setPictureSizeParams();
+        camera.takePicture(null, null,null, new Camera.PictureCallback() {
             @Override
             public void onPictureTaken(final byte[] data, Camera camera) {
                 try {
-                    FileOutputStream out = new FileOutputStream(getOutputMediaFile(MEDIA_TYPE_IMAGE));
+                    File file = getOutputMediaFile(MEDIA_TYPE_IMAGE);
+                    FileOutputStream out = new FileOutputStream(file);
                     Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
                     out.flush();
                     out.close();
                     camera.startPreview();
+                    addClickImageToList(file.getAbsolutePath());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
         });
+    }
+
+    private void addClickImageToList(String path){
+        ImageModel model = new ImageModel();
+        model.setPath(path);
+        model.setSelected(true);
+        model.setVideo(false);
+        imageModels.add(0,model);
+        selectedImagesList.add(model);
+        adapter.notifyItemInserted(0);
+        imagesRV.scrollToPosition(0);
+        setNextVisibilityAndText();
+    }
+
+    private void setNextVisibilityAndText(){
+        if (selectedImagesList.size()>0){
+            nextIV.setVisibility(View.VISIBLE);
+            selectionCount.setVisibility(View.VISIBLE);
+            selectionCount.setText(""+selectedImagesList.size());
+        }else {
+            nextIV.setVisibility(View.GONE);
+            selectionCount.setVisibility(View.GONE);
+        }
+    }
+    private void setPictureSizeParams(){
+        Camera.Parameters params = camera.getParameters();
+        List<Camera.Size> sizeList = params.getSupportedPictureSizes();
+        Camera.Size size = sizeList.get(0);
+        for (int i = 0; i < sizeList.size(); i++) {
+            if (sizeList.get(i).width > size.width)
+                size = sizeList.get(i);
+        }
+        params.setPictureSize(size.width, size.height);
+    }
+
+    @Override
+    public void onItemClickEvent(int position) {
+        if (!imageModels.get(position).getSelected() && selectedImagesList.size() == 3){
+            Toast.makeText(getActivity(), "Limit exceed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (imageModels.get(position).getSelected()){
+            imageModels.get(position).setSelected(false);
+            if(selectedImagesList.contains(imageModels.get(position))){
+                selectedImagesList.remove(imageModels.get(position));
+            }
+        }else {
+            imageModels.get(position).setSelected(true);
+            selectedImagesList.add(imageModels.get(position));
+        }
+        Log.d(TAG,"Selection Size: "+selectedImagesList.size());
+        adapter.notifyItemChanged(position);
+        setNextVisibilityAndText();
+    }
+
+    private void addEditorFragment(){
+        Editor fragment = new Editor();
+        Bundle bundle = new Bundle();
+        bundle.putSerializable("IMAGES",selectedImagesList);
+        bundle.putString("TYPE","GALLERY");
+        fragment.setArguments(bundle);
+        ((BaseActivity)getActivity()).addFragment(fragment,"Editor");
     }
 }

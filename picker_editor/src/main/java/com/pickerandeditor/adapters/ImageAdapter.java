@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 
 import com.pickerandeditor.R;
 import com.pickerandeditor.modelclasses.ImageModel;
@@ -22,10 +23,12 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ImageHolder>
 
     private Context context;
     private ArrayList<ImageModel> imageModels;
+    private OnItemClick onItemClick;
 
-    public ImageAdapter(Context context, ArrayList<ImageModel> imageModels) {
+    public ImageAdapter(Context context, ArrayList<ImageModel> imageModels, OnItemClick onItemClick) {
         this.context = context;
         this.imageModels = imageModels;
+        this.onItemClick = onItemClick;
     }
 
     @Override
@@ -38,6 +41,11 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ImageHolder>
     public void onBindViewHolder(ImageHolder holder, int position) {
         Picasso.get().load(new File(imageModels.get(position).getPath()))
                 .resize(300, 300).centerCrop() .into(holder.imagePreview);
+        if (imageModels.get(position).getSelected()){
+            holder.checkedLayout.setVisibility(View.VISIBLE);
+        }else {
+            holder.checkedLayout.setVisibility(View.GONE);
+        }
     }
 
     @Override
@@ -48,16 +56,21 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ImageHolder>
     public class ImageHolder extends RecyclerView.ViewHolder{
 
         private ImageView imagePreview;
+        private RelativeLayout checkedLayout;
 
         public ImageHolder(View itemView) {
             super(itemView);
             imagePreview = (ImageView) itemView.findViewById(R.id.imagePreview);
+            checkedLayout = itemView.findViewById(R.id.checkedLayout);
             imagePreview.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-
+                    onItemClick.onItemClickEvent(getLayoutPosition());
                 }
             });
         }
+    }
+    public interface OnItemClick{
+        void onItemClickEvent(int position);
     }
 }

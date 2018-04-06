@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    android:orientation="vertical">
+
+
+    <RelativeLayout
+        android:id="@+id/imageEditorView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+
+        <RelativeLayout
+            android:id="@+id/editorViewParent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"></RelativeLayout>
+
+        <ImageView
+            android:id="@+id/crossIV"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignParentRight="true"
+            android:layout_margin="10dp"
+            android:src="@drawable/cross_pink" />
+
+        <ImageView
+            android:id="@+id/pencilIV"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_margin="10dp"
+            android:layout_toLeftOf="@id/crossIV"
+            android:src="@drawable/edit_pencil" />
+
+        <ImageView
+            android:id="@+id/undoIV"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginBottom="10dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginRight="54dp"
+            android:layout_marginTop="10dp"
+            android:layout_toLeftOf="@id/crossIV"
+            android:src="@drawable/undo" />
+
+    </RelativeLayout>
+
+    <ScrollView
+        android:id="@+id/messageLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:isScrollContainer="true">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:alpha="0.6"
+                android:background="@android:color/darker_gray" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/message"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@android:color/transparent"
+                    android:hint="Add a caption..."
+                    android:maxLines="5"
+                    android:padding="5dp"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="@android:color/darker_gray" />
+
+                <ImageView
+                    android:id="@+id/send"
+                    android:layout_width="25dp"
+                    android:layout_height="25dp"
+                    android:layout_margin="5dp"
+                    android:background="@drawable/send_icon"
+                    android:padding="4dp" />
+            </LinearLayout>
+        </FrameLayout>
+
+    </ScrollView>
+
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/imagesRV"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/messageLayout"
+        android:minHeight="?android:actionBarSize"
+        android:visibility="gone"></android.support.v7.widget.RecyclerView>
+
+</LinearLayout>
+
