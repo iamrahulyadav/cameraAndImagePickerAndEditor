@@ -12,6 +12,7 @@ import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.LinearLayoutManager;
@@ -21,6 +22,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
@@ -31,18 +33,23 @@ import com.pickerandeditor.editor_classes.PhotoEditor;
 import com.pickerandeditor.editor_classes.PhotoEditorView;
 import com.pickerandeditor.editor_classes.ViewType;
 import com.pickerandeditor.modelclasses.ImageModel;
+import com.pickerandeditor.videoCompressor.K4LVideoTrimmer;
+import com.pickerandeditor.videoCompressor.interfaces.OnK4LVideoListener;
+import com.pickerandeditor.videoCompressor.interfaces.OnTrimVideoListener;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 public class Editor extends android.support.v4.app.Fragment implements View.OnClickListener,
-        ImagesListAdapter.ImageClickListener, OnPhotoEditorListener {
+        ImagesListAdapter.ImageClickListener, OnPhotoEditorListener, OnTrimVideoListener, OnK4LVideoListener {
 
     private static final String TAG = "Editor";
 
@@ -50,16 +57,16 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
     private ImageView send;
     private EditText message;
     private RecyclerView imagesRV;
-    private RelativeLayout editorViewParent;
+    private RelativeLayout editorViewParent,imageEditorView;
+    private FrameLayout videoTrimmer;
 
-    private String type;
     private String fileType;
     private ImagesListAdapter adapter;
     private ArrayList<ImageModel> resultList;
     private int currentPoistion = 0;
-    private int viewsAdded;
     private ProgressDialog dialog;
-    private HashMap<Integer, List<Object>> valuesMap;
+    private static final int MEDIA_TYPE_VIDEO = 1;
+    private static final int MEDIA_TYPE_IMAGE = 2;
 
 
     @Nullable
@@ -69,7 +76,6 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
 
         Bundle bundle = getArguments();
         resultList = (ArrayList<ImageModel>) bundle.getSerializable("IMAGES");
-        type = bundle.getString("TYPE");
 
         send = (ImageView) view.findViewById(R.id.send);
         crossIV = (ImageView) view.findViewById(R.id.crossIV);
@@ -78,8 +84,9 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
         message = (EditText) view.findViewById(R.id.message);
         imagesRV = (RecyclerView) view.findViewById(R.id.imagesRV);
         editorViewParent = (RelativeLayout) view.findViewById(R.id.editorViewParent);
+        imageEditorView = (RelativeLayout) view.findViewById(R.id.imageEditorView);
+        videoTrimmer = (FrameLayout) view.findViewById(R.id.videoTrimmer);
 
-        valuesMap = new HashMap<>();
 
         dialog = new ProgressDialog(getActivity());
         dialog.setCancelable(false);
@@ -94,98 +101,24 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
 
 
     private void loadData() {
-        BitmapFactory.Options options = new BitmapFactory.Options();
-        Bitmap bitmap = BitmapFactory.decodeFile(resultList.get(0).getPath(), options);
-        if (type.equalsIgnoreCase("CAMERA")) {
-            fileType = "PHOTO";
-            float rotation = rotationForImage(getActivity(), Uri.fromFile(new File(resultList.get(0).getPath())));
-            if (rotation != 0) {
-                //New rotation matrix
-                Matrix matrix2 = new Matrix();
-                matrix2.preRotate(rotation);
-                bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(),
-                        matrix2, true);
-            }
-        } else if (type.equalsIgnoreCase("GALLERY")) {
-            fileType = "PHOTO";
-        }
-        addView(0, bitmap);
-
-        message.setText(resultList.get(0).getCaption());
-
-        for (int i = 0; i < resultList.size(); i++) {
-            java.util.Random random = new java.util.Random();
-            int r = Math.abs(random.nextInt());
+        if (resultList.get(0).getVideo()){
+            videoTrimmer.setVisibility(View.VISIBLE);
+            imageEditorView.setVisibility(View.GONE);
+            addVideoView(0,resultList.get(0).getPath());
+        }else {
+            videoTrimmer.setVisibility(View.GONE);
+            imageEditorView.setVisibility(View.VISIBLE);
             BitmapFactory.Options bitmapOptions = new BitmapFactory.Options();
-            //Bitmap newBitmap = BitmapFactory.decodeFile(resultList.get(i).getPath(), bitmapOptions);
-            if (type.equalsIgnoreCase("CAMERA")) {
-                float rotation = rotationForImage(getActivity(), Uri.fromFile(new File(resultList.get(i).getPath())));
-                if (rotation != 0) {
-                    // New rotation matrix
-                    Matrix matrix2 = new Matrix();
-                    matrix2.preRotate(rotation);
-                  //  newBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(),
-                  //          matrix2, true);
-                }
-            }
-           // StorageOperations.saveImage(Singleton.INSTANCE, String.valueOf(r) + "noteImage.png", newBitmap);
-//            Log.e("path of dir", "" + getExternalFilesDir(null).getAbsolutePath() + "/"
-//                    + "ImageNote/noteImage.png");
-            File noteResource = null;
-            if (fileType.equalsIgnoreCase("PHOTO")) {
-                if (bitmap != null) {
-                    noteResource = new File(resultList.get(i).getPath());
-                }
-            }
-            ImageModel values = resultList.get(i);
-            values.setPath(noteResource.getAbsolutePath());
-            resultList.set(i, values);
+            Bitmap newBitmap = BitmapFactory.decodeFile(resultList.get(0).getPath(), bitmapOptions);
+            addView(0, newBitmap);
         }
-
+        message.setText(resultList.get(0).getCaption());
         if (resultList.size() > 1) {
             imagesRV.setVisibility(View.VISIBLE);
             imagesRV.setLayoutManager(new LinearLayoutManager(getActivity(), LinearLayoutManager.HORIZONTAL, false));
             adapter = new ImagesListAdapter(resultList, getActivity(), this);
             imagesRV.setAdapter(adapter);
         }
-    }
-
-    public static float rotationForImage(Context context, Uri uri) {
-        try {
-            if (uri.getScheme().equals("content")) {
-                //From the media gallery
-                String[] projection = {MediaStore.Images.ImageColumns.ORIENTATION};
-                Cursor c = context.getContentResolver().query(uri, projection, null, null, null);
-                if (c.moveToFirst()) {
-                    return c.getInt(0);
-                }
-            } else if (uri.getScheme().equals("file")) {
-                //From a file saved by the camera
-                ExifInterface exif = new ExifInterface(uri.getPath());
-                int rotation = (int) exifOrientationToDegrees(exif.getAttributeInt(ExifInterface
-                        .TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL));
-                exif.setAttribute(ExifInterface.TAG_ORIENTATION, "" + ExifInterface
-                        .ORIENTATION_NORMAL);
-                exif.saveAttributes();
-                return rotation;
-            }
-            return 0;
-
-        } catch (IOException e) {
-            Log.e(TAG, "Error checking exit", e);
-            return 0;
-        }
-    }
-
-    private static float exifOrientationToDegrees(int exifOrientation) {
-        if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90) {
-            return 90;
-        } else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_180) {
-            return 180;
-        } else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
-            return 270;
-        }
-        return 0;
     }
 
     @SuppressLint("MissingPermission")
@@ -196,8 +129,7 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
         }else if (view.getId() == R.id.crossIV){
             //finish();
         }else if (view.getId() == R.id.pencilIV){
-            List<Object> list = valuesMap.get(currentPoistion);
-            PhotoEditor editor = (PhotoEditor) list.get(1);
+            PhotoEditor editor = resultList.get(currentPoistion).getPhotoEditor();
             if (editor.getBrushDrawableMode()) {
                 editor.setBrushDrawingMode(false);
                 pencilIV.setImageResource(R.drawable.edit_pencil);
@@ -211,9 +143,8 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
     }
 
     private void undoAction() {
-        if (valuesMap.containsKey(currentPoistion)) {
-            List<Object> list = valuesMap.get(currentPoistion);
-            PhotoEditor editor = (PhotoEditor) list.get(1);
+        if (resultList.get(currentPoistion).getPhotoEditor() != null) {
+            PhotoEditor editor = resultList.get(currentPoistion).getPhotoEditor();
             editor.undo();
         }
     }
@@ -232,13 +163,22 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
         values.setCaption(message.getText().toString());
         resultList.set(currentPoistion, values);
         message.setText("");
-        BitmapFactory.Options options = new BitmapFactory.Options();
-        Bitmap bitmap = BitmapFactory.decodeFile(resultList.get(position).getPath(), options);
-        addView(position, bitmap);
+        if (resultList.get(position).getVideo()){
+            videoTrimmer.setVisibility(View.VISIBLE);
+            imageEditorView.setVisibility(View.GONE);
+            addVideoView(position,resultList.get(position).getPath());
+        }else {
+            videoTrimmer.setVisibility(View.GONE);
+            imageEditorView.setVisibility(View.VISIBLE);
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            Bitmap bitmap = BitmapFactory.decodeFile(resultList.get(position).getPath(), options);
+            addView(position, bitmap);
+        }
         message.setText(resultList.get(position).getCaption());
         message.setSelection(resultList.get(position).getCaption().length());
         currentPoistion = position;
     }
+
 
     @Override
     public void onEditTextChangeListener(View rootView, String text, int colorCode) {
@@ -248,13 +188,11 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
     @Override
     public void onAddViewListener(ViewType viewType, int numberOfAddedViews) {
         Log.d(TAG, "onAddViewListener " + numberOfAddedViews);
-        viewsAdded = numberOfAddedViews;
     }
 
     @Override
     public void onRemoveViewListener(int numberOfAddedViews) {
         Log.d(TAG, "onRemoveViewListener " + numberOfAddedViews);
-        viewsAdded = numberOfAddedViews;
     }
 
     @Override
@@ -268,10 +206,9 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
     }
 
     private void addView(int position, Bitmap bitmap) {
-        if (valuesMap.containsKey(position)) {
-            List<Object> list = valuesMap.get(position);
-            PhotoEditorView photoEditorView = (PhotoEditorView) list.get(0);
-            PhotoEditor editor = (PhotoEditor) list.get(1);
+        if (resultList.get(position).getPhotoEditorView() != null) {
+            PhotoEditorView photoEditorView = resultList.get(position).getPhotoEditorView();
+            PhotoEditor editor = resultList.get(position).getPhotoEditor();
             editor.setBrushDrawingMode(false);
             pencilIV.setImageResource(R.drawable.edit_pencil);
             editorViewParent.removeAllViews();
@@ -285,23 +222,56 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
             pencilIV.setImageResource(R.drawable.edit_pencil);
             editorViewParent.removeAllViews();
             editorViewParent.addView(view);
-            List<Object> list = new ArrayList<>();
-            list.add(view);
-            list.add(editor);
-            valuesMap.put(position, list);
+            resultList.get(position).setPhotoEditorView(view);
+            resultList.get(position).setPhotoEditor(editor);
         }
     }
 
+    private void addVideoView(int position, String path){
+        if (resultList.get(position).getK4LVideoTrimmer() == null) {
+            K4LVideoTrimmer k4LVideoTrimmer = new K4LVideoTrimmer(getActivity(), null);
+            k4LVideoTrimmer.setVideoURI(Uri.parse(path));
+            k4LVideoTrimmer.setMaxDuration(30);
+            k4LVideoTrimmer.setMaxDuration(30);
+            k4LVideoTrimmer.setOnTrimVideoListener(this);
+            k4LVideoTrimmer.setOnK4LVideoListener(this);
+            k4LVideoTrimmer.setDestinationPath(getOutputMediaFile(MEDIA_TYPE_VIDEO).getAbsolutePath());
+            k4LVideoTrimmer.setVideoInformationVisibility(true);
+            videoTrimmer.removeAllViews();
+            resultList.get(position).setK4LVideoTrimmer(k4LVideoTrimmer);
+            videoTrimmer.addView(k4LVideoTrimmer);
+        }else {
+            K4LVideoTrimmer k4LVideoTrimmer = resultList.get(position).getK4LVideoTrimmer();
+            videoTrimmer.removeAllViews();
+            videoTrimmer.addView(k4LVideoTrimmer);
+        }
+    }
+
+    private File getOutputMediaFile(int type) {
+        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DCIM), "MyVideoApps");
+        if (!mediaStorageDir.exists()) {
+            if (!mediaStorageDir.mkdirs()) {
+                Log.d("MyCameraApp", "failed to create directory");
+                return null;
+            }
+        }
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        File mediaFile = null;
+        if (type == MEDIA_TYPE_VIDEO) {
+            mediaFile = new File(mediaStorageDir.getPath(), "VID_" + timeStamp + ".mp4");
+        } else if (type == MEDIA_TYPE_IMAGE) {
+            mediaFile = new File(mediaStorageDir.getPath(), "IMG_" + timeStamp + ".jpeg");
+        }
+        return mediaFile;
+    }
 
     private void saveImagesAndSend() {
         new Thread(new Runnable() {
             @Override
             public void run(){
-                Iterator iterator = valuesMap.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    Map.Entry<Integer, List<Object>> entry = (Map.Entry<Integer, List<Object>>) iterator.next();
-                    List<Object> list = entry.getValue();
-                    PhotoEditor editor = (PhotoEditor) list.get(1);
+                for (int i = 0; i <resultList.size() ; i++) {
+                    PhotoEditor editor = resultList.get(i).getPhotoEditor();
                     if (editor.getAddedViews().size() > 0) {
                         getActivity().runOnUiThread(new Runnable() {
                             @Override
@@ -311,7 +281,7 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
                                 }
                             }
                         });
-                        File file = new File(resultList.get(entry.getKey()).getPath());
+                        File file = new File(resultList.get(i).getPath());
                         try {
                             FileOutputStream out = new FileOutputStream(file, false);
                             if (editor.parentView != null) {
@@ -330,7 +300,7 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
                     @Override
                     public void run() {
                         if (dialog.isShowing()) {
-                            dialog.show();
+                            dialog.dismiss();
                         }
                         ImageModel values = resultList.get(currentPoistion);
                         values.setCaption(message.getText().toString());
@@ -343,4 +313,28 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
         }).start();
     }
 
+    @Override
+    public void onTrimStarted() {
+
+    }
+
+    @Override
+    public void getResult(Uri uri) {
+
+    }
+
+    @Override
+    public void cancelAction() {
+
+    }
+
+    @Override
+    public void onError(String message) {
+
+    }
+
+    @Override
+    public void onVideoPrepared() {
+
+    }
 }

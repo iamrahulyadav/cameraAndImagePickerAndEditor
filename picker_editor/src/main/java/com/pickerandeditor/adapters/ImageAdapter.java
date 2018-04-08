@@ -1,6 +1,7 @@
 package com.pickerandeditor.adapters;
 
 import android.content.Context;
+import android.net.Uri;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,6 +9,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
+import com.bumptech.glide.Glide;
 import com.pickerandeditor.R;
 import com.pickerandeditor.modelclasses.ImageModel;
 import com.squareup.picasso.Picasso;
@@ -39,8 +41,15 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ImageHolder>
 
     @Override
     public void onBindViewHolder(ImageHolder holder, int position) {
-        Picasso.get().load(new File(imageModels.get(position).getPath()))
-                .resize(300, 300).centerCrop() .into(holder.imagePreview);
+
+        if (imageModels.get(position).getVideo()){
+            Glide.with(context).asBitmap().load(Uri.fromFile(new File(imageModels.get(position).getPath())))
+                    .into(holder.imagePreview);
+
+        }else {
+            Picasso.get().load(new File(imageModels.get(position).getPath()))
+                    .resize(300, 300).centerCrop() .into(holder.imagePreview);
+        }
         if (imageModels.get(position).getSelected()){
             holder.checkedLayout.setVisibility(View.VISIBLE);
         }else {

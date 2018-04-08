@@ -101,6 +101,7 @@ public class K4LVideoTrimmer extends FrameLayout {
     private boolean mResetSeekBar = true;
     private final MessageHandler mMessageHandler = new MessageHandler(this);
 
+
     public K4LVideoTrimmer(@NonNull Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
@@ -139,25 +140,6 @@ public class K4LVideoTrimmer extends FrameLayout {
         });
         mListeners.add(mVideoProgressIndicator);
 
-        findViewById(R.id.btCancel)
-                .setOnClickListener(
-                        new OnClickListener() {
-                            @Override
-                            public void onClick(View view) {
-                                onCancelClicked();
-                            }
-                        }
-                );
-
-        findViewById(R.id.btSave)
-                .setOnClickListener(
-                        new OnClickListener() {
-                            @Override
-                            public void onClick(View view) {
-                                onSaveClicked();
-                            }
-                        }
-                );
 
         final GestureDetector gestureDetector = new
                 GestureDetector(getContext(),
@@ -259,7 +241,7 @@ public class K4LVideoTrimmer extends FrameLayout {
         mVideoProgressIndicator.setLayoutParams(lp);
     }
 
-    private void onSaveClicked() {
+    public void onSaveClicked() {
         if (mStartPosition <= 0 && mEndPosition >= mDuration) {
             if (mOnTrimVideoListener != null)
                 mOnTrimVideoListener.getResult(mSrc);
@@ -301,6 +283,41 @@ public class K4LVideoTrimmer extends FrameLayout {
         }
     }
 
+    private void saveNewAction(){
+        if (mStartPosition <= 0 && mEndPosition >= mDuration) {
+            if (mOnTrimVideoListener != null)
+                mOnTrimVideoListener.getResult(mSrc);
+        } else {
+            mPlayView.setVisibility(View.VISIBLE);
+            mVideoView.pause();
+
+            MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
+            mediaMetadataRetriever.setDataSource(getContext(), mSrc);
+            long METADATA_KEY_DURATION = Long.parseLong(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
+
+            final File file = new File(mSrc.getPath());
+
+            if (mTimeVideo < MIN_TIME_FRAME) {
+
+                if ((METADATA_KEY_DURATION - mEndPosition) > (MIN_TIME_FRAME - mTimeVideo)) {
+                    mEndPosition += (MIN_TIME_FRAME - mTimeVideo);
+                } else if (mStartPosition > (MIN_TIME_FRAME - mTimeVideo)) {
+                    mStartPosition -= (MIN_TIME_FRAME - mTimeVideo);
+                }
+            }
+
+            //notify that video trimming started
+            if (mOnTrimVideoListener != null) {
+                mOnTrimVideoListener.onTrimStarted();
+            }
+            try {
+                TrimVideoUtils.startTrim(file, getDestinationPath(), mStartPosition, mEndPosition, mOnTrimVideoListener);
+            } catch (final Throwable e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private void onClickVideoPlayPause() {
         if (mVideoView.isPlaying()) {
             mPlayView.setVisibility(View.VISIBLE);
@@ -319,7 +336,7 @@ public class K4LVideoTrimmer extends FrameLayout {
         }
     }
 
-    private void onCancelClicked() {
+    public void onCancelClicked() {
         mVideoView.stopPlayback();
         if (mOnTrimVideoListener != null) {
             mOnTrimVideoListener.cancelAction();

@@ -50,8 +50,7 @@ import java.util.List;
 public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback, View.OnClickListener, ImageAdapter.OnItemClick {
 
     private static final String TAG = "CameraAndPicker";
-    private static final int MEDIA_TYPE_VIDEO = 1;
-    private static final int MEDIA_TYPE_IMAGE = 2;
+    0
     private SurfaceView cameraPreview;
     private SurfaceHolder surfaceHolder;
     private Camera camera;
@@ -217,6 +216,9 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             mediaRecorder.release();
             mediaRecorder = null;
             isRecording = false;
+            if (outputFile.length()>0){
+                addClickedVideoTOList(outputFile.getAbsolutePath());
+            }
         }
         Log.d(TAG, "File Name: " + outputFile.getAbsolutePath() + " \n Size: " + outputFile.length());
     }
@@ -445,6 +447,18 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         model.setPath(path);
         model.setSelected(true);
         model.setVideo(false);
+        imageModels.add(0,model);
+        selectedImagesList.add(model);
+        adapter.notifyItemInserted(0);
+        imagesRV.scrollToPosition(0);
+        setNextVisibilityAndText();
+    }
+
+    private void addClickedVideoTOList(String file){
+        ImageModel model = new ImageModel();
+        model.setPath(file);
+        model.setSelected(true);
+        model.setVideo(true);
         imageModels.add(0,model);
         selectedImagesList.add(model);
         adapter.notifyItemInserted(0);

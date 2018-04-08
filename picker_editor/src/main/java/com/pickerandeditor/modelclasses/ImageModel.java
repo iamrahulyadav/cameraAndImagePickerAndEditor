@@ -1,5 +1,9 @@
 package com.pickerandeditor.modelclasses;
 
+import com.pickerandeditor.editor_classes.PhotoEditor;
+import com.pickerandeditor.editor_classes.PhotoEditorView;
+import com.pickerandeditor.videoCompressor.K4LVideoTrimmer;
+
 import java.io.Serializable;
 
 /**
@@ -12,6 +16,9 @@ public class ImageModel implements Serializable {
     private Boolean isSelected = false;
     private Boolean isVideo = false;
     private String caption = "";
+    private PhotoEditorView photoEditorView;
+    private PhotoEditor photoEditor;
+    private K4LVideoTrimmer k4LVideoTrimmer;
 
     public String getPath() {
         return path;
@@ -43,5 +50,29 @@ public class ImageModel implements Serializable {
 
     public void setCaption(String caption) {
         this.caption = caption;
+    }
+
+    public PhotoEditorView getPhotoEditorView() {
+        return photoEditorView;
+    }
+
+    public void setPhotoEditorView(PhotoEditorView photoEditorView) {
+        this.photoEditorView = photoEditorView;
+    }
+
+    public PhotoEditor getPhotoEditor() {
+        return photoEditor;
+    }
+
+    public void setPhotoEditor(PhotoEditor photoEditor) {
+        this.photoEditor = photoEditor;
+    }
+
+    public K4LVideoTrimmer getK4LVideoTrimmer() {
+        return k4LVideoTrimmer;
+    }
+
+    public void setK4LVideoTrimmer(K4LVideoTrimmer k4LVideoTrimmer) {
+        this.k4LVideoTrimmer = k4LVideoTrimmer;
     }
 }

@@ -59,19 +59,19 @@
             android:secondaryProgress="0"
             android:thumb="@drawable/apptheme_text_select_handle_middle"/>
 
-        <life.knowledge4.videotrimmer.view.ProgressBarView
+        <com.pickerandeditor.videoCompressor.view.ProgressBarView
             android:id="@+id/timeVideoView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@+id/handlerTop"/>
 
-        <life.knowledge4.videotrimmer.view.TimeLineView
+        <com.pickerandeditor.videoCompressor.view.TimeLineView
             android:id="@+id/timeLineView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@+id/timeVideoView"/>
 
-        <life.knowledge4.videotrimmer.view.RangeSeekBarView
+        <com.pickerandeditor.videoCompressor.view.RangeSeekBarView
             android:id="@+id/timeLineBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -118,38 +118,6 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:background="@color/background_video_color">
-
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <Button
-                android:id="@+id/btCancel"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/black_button_background"
-                android:text="@string/cancel"
-                android:textColor="@android:color/white"/>
-
-            <View
-                android:layout_width="1dp"
-                android:layout_height="match_parent"
-                android:layout_marginBottom="5dp"
-                android:layout_marginTop="5dp"
-                android:background="@color/line_button"/>
-
-            <Button
-                android:id="@+id/btSave"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/black_button_background"
-                android:text="@string/save"
-                android:textColor="@android:color/white"/>
-
-        </LinearLayout>
 
     </RelativeLayout>
 </LinearLayout>

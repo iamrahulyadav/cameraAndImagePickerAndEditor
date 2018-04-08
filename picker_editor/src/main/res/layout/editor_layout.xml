@@ -1,25 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black"
     android:orientation="vertical">
 
 
-    <RelativeLayout
-        android:id="@+id/imageEditorView"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_weight="1">
 
         <RelativeLayout
-            android:id="@+id/editorViewParent"
+            android:id="@+id/imageEditorView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:gravity="center"></RelativeLayout>
+            android:visibility="gone">
 
+            <RelativeLayout
+                android:id="@+id/editorViewParent"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"></RelativeLayout>
+
+
+            <ImageView
+                android:id="@+id/pencilIV"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_alignParentRight="true"
+                android:layout_margin="10dp"
+                android:src="@drawable/edit_pencil" />
+
+            <ImageView
+                android:id="@+id/undoIV"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_margin="10dp"
+                android:layout_toLeftOf="@id/pencilIV"
+                android:src="@drawable/undo" />
+
+        </RelativeLayout>
+
+        <FrameLayout
+            android:id="@+id/videoTrimmer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="39dp">
+
+        </FrameLayout>
         <ImageView
             android:id="@+id/crossIV"
             android:layout_width="24dp"
@@ -28,26 +58,8 @@
             android:layout_margin="10dp"
             android:src="@drawable/cross_pink" />
 
-        <ImageView
-            android:id="@+id/pencilIV"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_margin="10dp"
-            android:layout_toLeftOf="@id/crossIV"
-            android:src="@drawable/edit_pencil" />
 
-        <ImageView
-            android:id="@+id/undoIV"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginBottom="10dp"
-            android:layout_marginLeft="10dp"
-            android:layout_marginRight="54dp"
-            android:layout_marginTop="10dp"
-            android:layout_toLeftOf="@id/crossIV"
-            android:src="@drawable/undo" />
-
-    </RelativeLayout>
+    </FrameLayout>
 
     <ScrollView
         android:id="@+id/messageLayout"

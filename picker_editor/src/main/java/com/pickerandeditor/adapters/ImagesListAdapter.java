@@ -3,6 +3,7 @@ package com.pickerandeditor.adapters;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,6 +11,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 
 
+import com.bumptech.glide.Glide;
 import com.pickerandeditor.R;
 import com.pickerandeditor.modelclasses.ImageModel;
 import com.squareup.picasso.Picasso;
@@ -41,7 +43,14 @@ public class ImagesListAdapter extends RecyclerView.Adapter<ImagesListAdapter.Im
 
     @Override
     public void onBindViewHolder(ImagesHolder holder, int position) {
-        Picasso.get().load(new File(imageslist.get(position).getPath())).fit().into(holder.imageListView);
+        if (imageslist.get(position).getVideo()){
+            Glide.with(context).asBitmap().load(Uri.fromFile(new File(imageslist.get(position).getPath())))
+                    .into(holder.imageListView);
+
+        }else {
+            Picasso.get().load(new File(imageslist.get(position).getPath())).fit()
+                    .into(holder.imageListView);
+        }
     }
 
     @Override
