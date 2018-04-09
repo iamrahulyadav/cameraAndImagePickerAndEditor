@@ -50,7 +50,8 @@ import java.util.List;
 public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback, View.OnClickListener, ImageAdapter.OnItemClick {
 
     private static final String TAG = "CameraAndPicker";
-    0
+    private static final int MEDIA_TYPE_VIDEO = 1;
+    private static final int MEDIA_TYPE_IMAGE = 2;
     private SurfaceView cameraPreview;
     private SurfaceHolder surfaceHolder;
     private Camera camera;
@@ -126,6 +127,17 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
 
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
+        Camera.Parameters parameters = camera.getParameters();
+        Camera.Size optiSize = getBestPreviewSize(720, 720);
+        if (optiSize != null) {
+            parameters.setPreviewSize(optiSize.width, optiSize.height);
+            parameters.setPictureSize(optiSize.width, optiSize.height);
+        }
+        List<String> focusModes = parameters.getSupportedFocusModes();
+        if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
+            parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
+        }
+        camera.setParameters(parameters);
         startPreview();
     }
 
@@ -180,21 +192,35 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             if (!isCameraConfigured) {
                 Camera.Parameters parameters = camera.getParameters();
                 parameters.setPreviewFpsRange(30000, 30000);
-                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
-
-                Camera.Parameters params = camera.getParameters();
-                parameters.setJpegQuality(100);
+                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
                 parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-                parameters.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
-                parameters.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
-                parameters.setExposureCompensation(0);
-                parameters.setPictureFormat(ImageFormat.JPEG);
                 camera.setParameters(parameters);
                 isCameraConfigured = true;
             }
         }
     }
 
+    private Camera.Size getBestPreviewSize(int width, int height) {
+        List<Camera.Size> sizes = camera.getParameters()
+                .getSupportedPreviewSizes();
+        if (sizes == null)
+            return null;
+        Camera.Size optimalSize = null;
+        int tmpSize;
+
+        int minWidthDiff = 1000;
+        for (Camera.Size size : sizes) {
+            if (size.width > size.height)
+                tmpSize = size.height;
+            else
+                tmpSize = size.width;
+            if (Math.abs(tmpSize - width) < minWidthDiff) {
+                minWidthDiff = Math.abs(tmpSize - width);
+                optimalSize = size;
+            }
+        }
+        return optimalSize;
+    }
     private void releaseMediaRecorder() {
         if (mediaRecorder != null) {
             mediaRecorder.reset();
