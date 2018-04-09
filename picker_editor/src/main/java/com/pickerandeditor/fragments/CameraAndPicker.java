@@ -5,9 +5,11 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.hardware.Camera;
 import android.media.AudioManager;
 import android.media.CamcorderProfile;
+import android.media.ExifInterface;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
@@ -68,7 +70,6 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     private int currentCameraID;
     private Handler videoHandler;
     private Boolean isRecordVideo = false;
-    private ArrayList<ImageModel> imageModels, selectedImagesList;
     private ImageAdapter adapter;
 
 
@@ -81,8 +82,6 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         imagesRV = view.findViewById(R.id.imagesRV);
 
         videoHandler = new Handler();
-        imageModels = new ArrayList<>();
-        selectedImagesList = new ArrayList<>();
 
         cameraPreview = view.findViewById(R.id.cameraPreview);
         takeBTN = view.findViewById(R.id.takeBTN);
@@ -102,12 +101,13 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         setTakeBTNTouchListener();
         setRecyclerView();
         getAllShownImagesPath();
+        setNextVisibilityAndText();
         return view;
     }
 
     private void setRecyclerView() {
         imagesRV.setLayoutManager(new LinearLayoutManager(getActivity(), LinearLayoutManager.HORIZONTAL, false));
-        adapter = new ImageAdapter(getActivity(), imageModels,this);
+        adapter = new ImageAdapter(getActivity(), BaseActivity.imageModels,this);
         imagesRV.setAdapter(adapter);
     }
 
@@ -138,6 +138,7 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
             parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
         }
         camera.setParameters(parameters);
+        setCameraDisplayOrientation(currentCameraID,camera);
         startPreview();
     }
 
@@ -418,33 +419,35 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     }
 
     public void getAllShownImagesPath() {
-        Uri uri;
-        Cursor cursor;
-        int column_index_data, column_index_folder_name;
-        String absolutePathOfImage = null;
-        uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+        if (BaseActivity.imageModels.size() == 0) {
+            Uri uri;
+            Cursor cursor;
+            int column_index_data, column_index_folder_name;
+            String absolutePathOfImage = null;
+            uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
 
-        String[] projection = {MediaStore.MediaColumns.DATA,
-                MediaStore.Images.Media.BUCKET_DISPLAY_NAME};
-        cursor = getActivity().getContentResolver().query(uri, projection, null,
-                null, null);
+            String[] projection = {MediaStore.MediaColumns.DATA,
+                    MediaStore.Images.Media.BUCKET_DISPLAY_NAME};
+            cursor = getActivity().getContentResolver().query(uri, projection, null,
+                    null, null);
 
-        column_index_data = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA);
-        column_index_folder_name = cursor
-                .getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME);
-        while (cursor.moveToNext()) {
-            absolutePathOfImage = cursor.getString(column_index_data);
-            ImageModel model = new ImageModel();
-            model.setPath(absolutePathOfImage);
-            imageModels.add(model);
+            column_index_data = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA);
+            column_index_folder_name = cursor
+                    .getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME);
+            while (cursor.moveToNext()) {
+                absolutePathOfImage = cursor.getString(column_index_data);
+                ImageModel model = new ImageModel();
+                model.setPath(absolutePathOfImage);
+                BaseActivity.imageModels.add(model);
+            }
+            Log.d(TAG, BaseActivity.imageModels.size() + "");
+            Collections.reverse(BaseActivity.imageModels);
         }
-        Log.d(TAG, imageModels.size() + "");
-        Collections.reverse(imageModels);
         adapter.notifyDataSetChanged();
     }
 
     private void takePicture() {
-        if (selectedImagesList.size() == 3){
+        if (BaseActivity.selectedImagesList.size() == 3){
             Toast.makeText(getActivity(), "Limit exceed", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -459,6 +462,19 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
                     out.flush();
                     out.close();
+                    float rotation = rotationForImage(getActivity(), Uri.fromFile(file));
+                    if (rotation != 0) {
+                        //New rotation matrix
+                        Matrix matrix2 = new Matrix();
+                        matrix2.preRotate(rotation);
+                        bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(),
+                                matrix2, true);
+
+                        out = new FileOutputStream(file);
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
+                        out.flush();
+                        out.close();
+                    }
                     camera.startPreview();
                     addClickImageToList(file.getAbsolutePath());
                 } catch (Exception e) {
@@ -473,8 +489,8 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         model.setPath(path);
         model.setSelected(true);
         model.setVideo(false);
-        imageModels.add(0,model);
-        selectedImagesList.add(model);
+        BaseActivity.imageModels.add(0,model);
+        BaseActivity.selectedImagesList.add(model);
         adapter.notifyItemInserted(0);
         imagesRV.scrollToPosition(0);
         setNextVisibilityAndText();
@@ -485,18 +501,18 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         model.setPath(file);
         model.setSelected(true);
         model.setVideo(true);
-        imageModels.add(0,model);
-        selectedImagesList.add(model);
+        BaseActivity.imageModels.add(0,model);
+        BaseActivity.selectedImagesList.add(model);
         adapter.notifyItemInserted(0);
         imagesRV.scrollToPosition(0);
         setNextVisibilityAndText();
     }
 
     private void setNextVisibilityAndText(){
-        if (selectedImagesList.size()>0){
+        if (BaseActivity.selectedImagesList.size()>0){
             nextIV.setVisibility(View.VISIBLE);
             selectionCount.setVisibility(View.VISIBLE);
-            selectionCount.setText(""+selectedImagesList.size());
+            selectionCount.setText(""+BaseActivity.selectedImagesList.size());
         }else {
             nextIV.setVisibility(View.GONE);
             selectionCount.setVisibility(View.GONE);
@@ -515,30 +531,64 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
 
     @Override
     public void onItemClickEvent(int position) {
-        if (!imageModels.get(position).getSelected() && selectedImagesList.size() == 3){
+        if (!BaseActivity.imageModels.get(position).getSelected() && BaseActivity.selectedImagesList.size() == 3){
             Toast.makeText(getActivity(), "Limit exceed", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (imageModels.get(position).getSelected()){
-            imageModels.get(position).setSelected(false);
-            if(selectedImagesList.contains(imageModels.get(position))){
-                selectedImagesList.remove(imageModels.get(position));
+        if (BaseActivity.imageModels.get(position).getSelected()){
+            BaseActivity.imageModels.get(position).setSelected(false);
+            if(BaseActivity.selectedImagesList.contains(BaseActivity.imageModels.get(position))){
+                BaseActivity.selectedImagesList.remove(BaseActivity.imageModels.get(position));
             }
         }else {
-            imageModels.get(position).setSelected(true);
-            selectedImagesList.add(imageModels.get(position));
+            BaseActivity.imageModels.get(position).setSelected(true);
+            BaseActivity.selectedImagesList.add(BaseActivity.imageModels.get(position));
         }
-        Log.d(TAG,"Selection Size: "+selectedImagesList.size());
+        Log.d(TAG,"Selection Size: "+BaseActivity.selectedImagesList.size());
         adapter.notifyItemChanged(position);
         setNextVisibilityAndText();
     }
 
     private void addEditorFragment(){
         Editor fragment = new Editor();
-        Bundle bundle = new Bundle();
-        bundle.putSerializable("IMAGES",selectedImagesList);
-        bundle.putString("TYPE","GALLERY");
-        fragment.setArguments(bundle);
         ((BaseActivity)getActivity()).addFragment(fragment,"Editor");
+    }
+
+    public static float rotationForImage(Context context, Uri uri) {
+        try {
+            if (uri.getScheme().equals("content")) {
+                //From the media gallery
+                String[] projection = {MediaStore.Images.ImageColumns.ORIENTATION};
+                Cursor c = context.getContentResolver().query(uri, projection, null, null, null);
+                if (c.moveToFirst()) {
+                    return c.getInt(0);
+                }
+            } else if (uri.getScheme().equals("file")) {
+                //From a file saved by the camera
+                ExifInterface exif = new ExifInterface(uri.getPath());
+                int rotation = (int) exifOrientationToDegrees(exif.getAttributeInt(ExifInterface
+                        .TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL));
+                exif.setAttribute(ExifInterface.TAG_ORIENTATION, "" + ExifInterface
+                        .ORIENTATION_NORMAL);
+                exif.saveAttributes();
+                return rotation;
+            }
+            return 0;
+
+        } catch (IOException e) {
+            Log.e(TAG, "Error checking exit", e);
+            return 0;
+        }
+    }
+
+    private static float exifOrientationToDegrees(int exifOrientation) {
+        if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90) {
+            return 90;
+        } else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_180) {
+            return 180;
+        } else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
+            return 270;
+        }
+        return 0;
     }
 }

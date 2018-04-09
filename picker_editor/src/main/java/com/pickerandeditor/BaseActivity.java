@@ -14,12 +14,20 @@ import android.view.WindowManager;
 import android.widget.RelativeLayout;
 
 import com.pickerandeditor.fragments.CameraAndPicker;
+import com.pickerandeditor.modelclasses.ImageModel;
+import com.pickerandeditor.videoCompressor.Log;
+
+import java.util.ArrayList;
 
 public class BaseActivity extends AppCompatActivity {
 
 
+    private static final String TAG = "BASE_EDITOR_ACT";
+
     private RelativeLayout containerView;
     private FragmentManager fragmentManager;
+    public static ArrayList<ImageModel> imageModels, selectedImagesList;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -28,6 +36,9 @@ public class BaseActivity extends AppCompatActivity {
                 LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         containerView = findViewById(R.id.containerView);
+
+        imageModels = new ArrayList<>();
+        selectedImagesList = new ArrayList<>();
 
         addFragment(new CameraAndPicker(),"Picker");
     }
@@ -41,4 +52,24 @@ public class BaseActivity extends AppCompatActivity {
         ft.commit();
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Log.d(TAG,"onPause");
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.d(TAG,"onStop");
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (fragmentManager.getBackStackEntryCount() == 1){
+            finish();
+            return;
+        }
+        super.onBackPressed();
+    }
 }

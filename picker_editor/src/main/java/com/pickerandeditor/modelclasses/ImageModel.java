@@ -10,15 +10,16 @@ import java.io.Serializable;
  * Created by APPZLOGIC on 4/4/2018.
  */
 
-public class ImageModel implements Serializable {
+public class ImageModel{
 
     private String path;
     private Boolean isSelected = false;
     private Boolean isVideo = false;
     private String caption = "";
-    private PhotoEditorView photoEditorView;
-    private PhotoEditor photoEditor;
-    private K4LVideoTrimmer k4LVideoTrimmer;
+    private PhotoEditorView photoEditorView = null;
+    private PhotoEditor photoEditor = null;
+    private K4LVideoTrimmer k4LVideoTrimmer = null;
+    private Boolean operationCompleted = false;
 
     public String getPath() {
         return path;
@@ -74,5 +75,13 @@ public class ImageModel implements Serializable {
 
     public void setK4LVideoTrimmer(K4LVideoTrimmer k4LVideoTrimmer) {
         this.k4LVideoTrimmer = k4LVideoTrimmer;
+    }
+
+    public Boolean getOperationCompleted() {
+        return operationCompleted;
+    }
+
+    public void setOperationCompleted(Boolean operationCompleted) {
+        this.operationCompleted = operationCompleted;
     }
 }

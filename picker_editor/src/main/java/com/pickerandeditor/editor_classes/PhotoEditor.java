@@ -28,6 +28,7 @@ import com.pickerandeditor.R;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,7 +36,7 @@ import java.util.List;
  * Created by Burhanuddin Rashid on 18/01/2017.
  */
 
-public class PhotoEditor implements BrushViewChangeListener {
+public class PhotoEditor implements BrushViewChangeListener{
 
     private static final String TAG = PhotoEditor.class.getSimpleName();
     private final LayoutInflater mLayoutInflater;

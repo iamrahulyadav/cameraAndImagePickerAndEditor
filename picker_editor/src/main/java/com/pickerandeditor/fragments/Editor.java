@@ -26,6 +26,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
+import com.pickerandeditor.BaseActivity;
 import com.pickerandeditor.R;
 import com.pickerandeditor.adapters.ImagesListAdapter;
 import com.pickerandeditor.editor_classes.OnPhotoEditorListener;
@@ -57,7 +58,7 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
     private ImageView send;
     private EditText message;
     private RecyclerView imagesRV;
-    private RelativeLayout editorViewParent,imageEditorView;
+    private RelativeLayout editorViewParent, imageEditorView;
     private FrameLayout videoTrimmer;
 
     private String fileType;
@@ -65,6 +66,8 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
     private ArrayList<ImageModel> resultList;
     private int currentPoistion = 0;
     private ProgressDialog dialog;
+    private Thread workerThread;
+    private int workingPosition;
     private static final int MEDIA_TYPE_VIDEO = 1;
     private static final int MEDIA_TYPE_IMAGE = 2;
 
@@ -72,10 +75,10 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.editor_layout,null);
+        View view = inflater.inflate(R.layout.editor_layout, null);
 
-        Bundle bundle = getArguments();
-        resultList = (ArrayList<ImageModel>) bundle.getSerializable("IMAGES");
+        resultList = new ArrayList<>();
+        resultList.addAll(BaseActivity.selectedImagesList);
 
         send = (ImageView) view.findViewById(R.id.send);
         crossIV = (ImageView) view.findViewById(R.id.crossIV);
@@ -101,11 +104,11 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
 
 
     private void loadData() {
-        if (resultList.get(0).getVideo()){
+        if (resultList.get(0).getVideo()) {
             videoTrimmer.setVisibility(View.VISIBLE);
             imageEditorView.setVisibility(View.GONE);
-            addVideoView(0,resultList.get(0).getPath());
-        }else {
+            addVideoView(0, resultList.get(0).getPath());
+        } else {
             videoTrimmer.setVisibility(View.GONE);
             imageEditorView.setVisibility(View.VISIBLE);
             BitmapFactory.Options bitmapOptions = new BitmapFactory.Options();
@@ -118,17 +121,27 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
             imagesRV.setLayoutManager(new LinearLayoutManager(getActivity(), LinearLayoutManager.HORIZONTAL, false));
             adapter = new ImagesListAdapter(resultList, getActivity(), this);
             imagesRV.setAdapter(adapter);
+
+            for (int i = 0; i <resultList.size() ; i++) {
+                if (i != 0 && resultList.get(i).getVideo()){
+                    addVideoEditor(i, resultList.get(i).getPath());
+                }else {
+                    BitmapFactory.Options bitmapOptions = new BitmapFactory.Options();
+                    Bitmap bitmap = BitmapFactory.decodeFile(resultList.get(i).getPath(), bitmapOptions);
+                    addPhotoeditor(i, bitmap);
+                }
+            }
         }
     }
 
     @SuppressLint("MissingPermission")
     @Override
     public void onClick(View view) {
-        if (view.getId() == R.id.send){
+        if (view.getId() == R.id.send) {
             saveImagesAndSend();
-        }else if (view.getId() == R.id.crossIV){
-            //finish();
-        }else if (view.getId() == R.id.pencilIV){
+        } else if (view.getId() == R.id.crossIV) {
+            getActivity().onBackPressed();
+        } else if (view.getId() == R.id.pencilIV) {
             PhotoEditor editor = resultList.get(currentPoistion).getPhotoEditor();
             if (editor.getBrushDrawableMode()) {
                 editor.setBrushDrawingMode(false);
@@ -137,7 +150,7 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
                 editor.setBrushDrawingMode(true);
                 pencilIV.setImageResource(R.drawable.edit_pencil_selected);
             }
-        }else if (view.getId() == R.id.undoIV){
+        } else if (view.getId() == R.id.undoIV) {
             undoAction();
         }
     }
@@ -163,11 +176,11 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
         values.setCaption(message.getText().toString());
         resultList.set(currentPoistion, values);
         message.setText("");
-        if (resultList.get(position).getVideo()){
+        if (resultList.get(position).getVideo()) {
             videoTrimmer.setVisibility(View.VISIBLE);
             imageEditorView.setVisibility(View.GONE);
-            addVideoView(position,resultList.get(position).getPath());
-        }else {
+            addVideoView(position, resultList.get(position).getPath());
+        } else {
             videoTrimmer.setVisibility(View.GONE);
             imageEditorView.setVisibility(View.VISIBLE);
             BitmapFactory.Options options = new BitmapFactory.Options();
@@ -227,7 +240,17 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
         }
     }
 
-    private void addVideoView(int position, String path){
+    private void addPhotoeditor(int position, Bitmap bitmap){
+        PhotoEditorView view = new PhotoEditorView(getActivity());
+        view.getSource().setImageBitmap(bitmap);
+        PhotoEditor editor = new PhotoEditor.Builder(getActivity(), view).build();
+        editor.setBrushColor(getResources().getColor(android.R.color.holo_red_light));
+        editor.setBrushDrawingMode(false);
+        resultList.get(position).setPhotoEditorView(view);
+        resultList.get(position).setPhotoEditor(editor);
+    }
+
+    private void addVideoView(int position, String path) {
         if (resultList.get(position).getK4LVideoTrimmer() == null) {
             K4LVideoTrimmer k4LVideoTrimmer = new K4LVideoTrimmer(getActivity(), null);
             k4LVideoTrimmer.setVideoURI(Uri.parse(path));
@@ -240,11 +263,24 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
             videoTrimmer.removeAllViews();
             resultList.get(position).setK4LVideoTrimmer(k4LVideoTrimmer);
             videoTrimmer.addView(k4LVideoTrimmer);
-        }else {
+        } else {
             K4LVideoTrimmer k4LVideoTrimmer = resultList.get(position).getK4LVideoTrimmer();
             videoTrimmer.removeAllViews();
             videoTrimmer.addView(k4LVideoTrimmer);
         }
+    }
+
+    private void addVideoEditor(int position, String path){
+        K4LVideoTrimmer k4LVideoTrimmer = new K4LVideoTrimmer(getActivity(), null);
+        k4LVideoTrimmer.setVideoURI(Uri.parse(path));
+        k4LVideoTrimmer.setMaxDuration(30);
+        k4LVideoTrimmer.setMaxDuration(30);
+        k4LVideoTrimmer.setOnTrimVideoListener(this);
+        k4LVideoTrimmer.setOnK4LVideoListener(this);
+        k4LVideoTrimmer.setDestinationPath(getOutputMediaFile(MEDIA_TYPE_VIDEO).getAbsolutePath());
+        k4LVideoTrimmer.setVideoInformationVisibility(true);
+        resultList.get(position).setK4LVideoTrimmer(k4LVideoTrimmer);
+
     }
 
     private File getOutputMediaFile(int type) {
@@ -256,61 +292,19 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
                 return null;
             }
         }
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String timeStamp = String.valueOf(System.currentTimeMillis());
         File mediaFile = null;
         if (type == MEDIA_TYPE_VIDEO) {
-            mediaFile = new File(mediaStorageDir.getPath(), "VID_" + timeStamp + ".mp4");
+            mediaFile = new File(mediaStorageDir.getPath(), "VID_SEND_" + timeStamp + ".mp4");
         } else if (type == MEDIA_TYPE_IMAGE) {
-            mediaFile = new File(mediaStorageDir.getPath(), "IMG_" + timeStamp + ".jpeg");
+            mediaFile = new File(mediaStorageDir.getPath(), "IMG_SEND" + timeStamp + ".jpeg");
         }
         return mediaFile;
     }
 
     private void saveImagesAndSend() {
-        new Thread(new Runnable() {
-            @Override
-            public void run(){
-                for (int i = 0; i <resultList.size() ; i++) {
-                    PhotoEditor editor = resultList.get(i).getPhotoEditor();
-                    if (editor.getAddedViews().size() > 0) {
-                        getActivity().runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (!dialog.isShowing()) {
-                                    dialog.show();
-                                }
-                            }
-                        });
-                        File file = new File(resultList.get(i).getPath());
-                        try {
-                            FileOutputStream out = new FileOutputStream(file, false);
-                            if (editor.parentView != null) {
-                                editor.parentView.setDrawingCacheEnabled(true);
-                                Bitmap drawingCache = editor.parentView.getDrawingCache();
-                                drawingCache.compress(Bitmap.CompressFormat.PNG, 100, out);
-                            }
-                            out.flush();
-                            out.close();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (dialog.isShowing()) {
-                            dialog.dismiss();
-                        }
-                        ImageModel values = resultList.get(currentPoistion);
-                        values.setCaption(message.getText().toString());
-                        resultList.set(currentPoistion, values);
-                        Intent intent = new Intent();
-                        intent.putExtra("IMAGES", resultList);
-                    }
-                });
-            }
-        }).start();
+        workerThread = new Thread(new WorkerClass());
+        workerThread.start();
     }
 
     @Override
@@ -320,7 +314,9 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
 
     @Override
     public void getResult(Uri uri) {
-
+        resultList.get(workingPosition).setOperationCompleted(true);
+        workerThread = new Thread(new WorkerClass());
+        workerThread.start();
     }
 
     @Override
@@ -337,4 +333,58 @@ public class Editor extends android.support.v4.app.Fragment implements View.OnCl
     public void onVideoPrepared() {
 
     }
+
+    private class WorkerClass implements Runnable {
+
+        @Override
+        public void run() {
+                for (int i = 0; i < resultList.size(); i++) {
+                    getActivity().runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!dialog.isShowing()) {
+                                dialog.show();
+                            }
+                        }
+                    });
+                    if (resultList.get(i).getVideo() && !resultList.get(i).getOperationCompleted()) {
+                        resultList.get(i).getK4LVideoTrimmer().onSaveClicked();
+                        workingPosition = i;
+                        return;
+                    } else if (!resultList.get(i).getOperationCompleted()){
+                        PhotoEditor editor = resultList.get(i).getPhotoEditor();
+                        if (editor.getAddedViews().size() > 0) {
+                            File file = new File(resultList.get(i).getPath());
+                            try {
+                                FileOutputStream out = new FileOutputStream(file, false);
+                                if (editor.parentView != null) {
+                                    editor.parentView.setDrawingCacheEnabled(true);
+                                    Bitmap drawingCache = editor.parentView.getDrawingCache();
+                                    drawingCache.compress(Bitmap.CompressFormat.PNG, 100, out);
+                                }
+                                out.flush();
+                                out.close();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+                Log.d(TAG, "Setp Complete");
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (dialog.isShowing()) {
+                            dialog.dismiss();
+                        }
+                        ImageModel values = resultList.get(currentPoistion);
+                        values.setCaption(message.getText().toString());
+                        resultList.set(currentPoistion, values);
+                        Intent intent = new Intent();
+                        intent.putExtra("IMAGES", resultList);
+                    }
+                });
+            }
+    }
+
 }

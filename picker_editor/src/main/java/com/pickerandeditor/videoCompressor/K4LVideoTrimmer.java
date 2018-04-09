@@ -283,7 +283,7 @@ public class K4LVideoTrimmer extends FrameLayout {
         }
     }
 
-    private void saveNewAction(){
+    public void saveNewAction(){
         if (mStartPosition <= 0 && mEndPosition >= mDuration) {
             if (mOnTrimVideoListener != null)
                 mOnTrimVideoListener.getResult(mSrc);
@@ -298,7 +298,6 @@ public class K4LVideoTrimmer extends FrameLayout {
             final File file = new File(mSrc.getPath());
 
             if (mTimeVideo < MIN_TIME_FRAME) {
-
                 if ((METADATA_KEY_DURATION - mEndPosition) > (MIN_TIME_FRAME - mTimeVideo)) {
                     mEndPosition += (MIN_TIME_FRAME - mTimeVideo);
                 } else if (mStartPosition > (MIN_TIME_FRAME - mTimeVideo)) {
