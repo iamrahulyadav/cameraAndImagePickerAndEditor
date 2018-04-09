@@ -13,6 +13,7 @@ import android.media.ExifInterface;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.Handler;
 import android.provider.MediaStore;
@@ -71,6 +72,8 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
     private Handler videoHandler;
     private Boolean isRecordVideo = false;
     private ImageAdapter adapter;
+    private CountDownTimer countDownTimer;
+    private int count = 0;
 
 
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
@@ -382,6 +385,19 @@ public class CameraAndPicker extends Fragment implements SurfaceHolder.Callback,
         if (prepareVideoRecorder()) {
             mediaRecorder.start();
             isRecording = true;
+            countDownTimer = new CountDownTimer(30000,1000) {
+                @Override
+                public void onTick(long l) {
+                    count ++;
+
+                }
+
+                @Override
+                public void onFinish() {
+
+                }
+            }.start();
+
         } else {
             Toast.makeText(getActivity(), "Something went wrong", Toast.LENGTH_SHORT).show();
         }
